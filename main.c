@@ -29,6 +29,13 @@ typedef enum GameScreen
     ENDING
 } GameScreen;
 
+typedef struct {
+    Rectangle rect;
+    int lives;
+    bool active;
+    Color color;
+} Brick;
+
 void desenhaMira(float angulo);
 float atualizaDirecaoDoCanhaoTeclas(float anguloMira);
 float atualizaDirecaoDoCanhaoMouse(void);
