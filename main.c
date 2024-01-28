@@ -15,6 +15,13 @@
 #define RAIO_BOLA 6
 #define VEL_BOLA 40
 
+#define BRICK_WIDTH 80
+#define BRICK_HEIGHT 30
+#define MAX_BRICKS 48
+#define MATRIX_ROWS 4
+#define MATRIX_COLS 12
+#define PASSO_BRICKS 1
+
 struct Bola
 {
     Vector2 posicao;
@@ -29,7 +36,8 @@ typedef enum GameScreen
     ENDING
 } GameScreen;
 
-typedef struct {
+typedef struct
+{
     Rectangle rect;
     int lives;
     bool active;
@@ -41,29 +49,103 @@ float atualizaDirecaoDoCanhaoTeclas(float anguloMira);
 float atualizaDirecaoDoCanhaoMouse(void);
 void checaDisparoESetaVelocidade(struct Bola *bola, float anguloDaMira);
 void moveBola(struct Bola *bola);
-int houveColisaoComBordas(struct Bola *bola);
+int houveColisaoComChao(struct Bola bola);
 void resetaBola(struct Bola *bola);
 
 int main(void)
 {
     struct Bola bola;
     bola.posicao.x = BASE_X;
-    bola.posicao.x = BASE_Y;
-    bola.velocidade.x = 0;
-    bola.velocidade.y = 0;
+    bola.posicao.y = BASE_Y;
+    bola.velocidade.x = 0.0f;
+    bola.velocidade.y = 0.0f;
 
     float anguloDaMira = ANGULO_INICIAL;
+    int score = 0;
+
+
+    int bricksMatrix[MATRIX_ROWS][MATRIX_COLS];
+    Brick bricks[MAX_BRICKS];
 
     // Inicializacoes de Jogo
+    //**********************************************************************************************************
     InitWindow(LARGURA_TELA, ALTURA_TELA, "Bricks"); // Inicializa janela, com certo tamanho e titulo
     SetTargetFPS(60);                                // Ajusta a execucao do jogo para 60 frames por segundo
     GameScreen currentScreen = LOGO;                 // Começa na etapa de logo do jogo
     int framesCounter = 0;                           // Usado para contar o tempo passado (em frames)
 
+    // Load matrix from file
+    FILE *file = fopen("config.txt", "r");
+    if (!file)
+    {
+        printf("Error: Could not open file 'config.txt'\n");
+        CloseWindow();
+        return;
+    }
+
+    for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            if (fscanf(file, "%d", &bricksMatrix[i][j]) != 1)
+            {
+                printf("Error: Invalid file format\n");
+                fclose(file);
+                CloseWindow();
+                return;
+            }
+        }
+    }
+
+    // Initialize bricks
+    int brickIndex = 0;
+    for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            if (bricksMatrix[i][j] > 0)
+            {
+                bricks[brickIndex].rect = (Rectangle)
+                {
+                    j * (BRICK_WIDTH + 10) + 50, i * (BRICK_HEIGHT + 10) + 50, BRICK_WIDTH, BRICK_HEIGHT
+                };
+                bricks[brickIndex].lives = bricksMatrix[i][j];
+                bricks[brickIndex].active = true;
+
+                // Set color based on remaining lives
+                if (bricks[brickIndex].lives == 3)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        237, 108, 43, 255
+                    }; // #ed6c2b
+                }
+                else if (bricks[brickIndex].lives == 2)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        252, 186, 3, 255
+                    };  // #fcba03
+                }
+                else if (bricks[brickIndex].lives == 1)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        252, 244, 3, 255
+                    };  // #fcf403
+                }
+
+                brickIndex++;
+            }
+        }
+    }
     // Carregar a textura do canhão do jogo
     Texture2D texture = LoadTexture("resources/canhao.png");
     const float posX_canhao = LARGURA_TELA/2.0f;
     const float posY_canhao = BASE_Y;
+    //**********************************************************************************************************
+
+
 
     //--------------------------------------------------------------------------------------
     // Laco principal do jogo
@@ -106,15 +188,75 @@ int main(void)
             // Chama funcao para checar disparo ao apertar KEY_SPACE e atualizar velocidades da bola
             checaDisparoESetaVelocidade(&bola, anguloDaMira);
 
-            // Chama funcao que verifica se a bola colidiu com as bordas da tela
+            // Check collision with ceiling
+            if (bola.posicao.y - RAIO_BOLA < 0)
+            {
+                bola.velocidade.y *= -1;
+                bola.posicao.y = RAIO_BOLA;
+            }
+
+            // Check collision with sides
+            if (bola.posicao.x - RAIO_BOLA < 0 || bola.posicao.x + RAIO_BOLA > LARGURA_TELA)
+            {
+                bola.velocidade.x *= -1;
+            }
+
+            // Chama funcao que verifica se a bola colidiu com o chão
             //        Se sim, chama funcao para resetar posicao e velocidade da bola
-            if (houveColisaoComBordas(&bola))
+            if (houveColisaoComChao(bola))
             {
                 resetaBola(&bola);
             }
 
+            // Check collision with bricks
+            for (int i = 0; i < MAX_BRICKS; i++)
+            {
+                if (bricks[i].active && CheckCollisionCircleRec(bola.posicao, RAIO_BOLA, bricks[i].rect))
+                {
+                    bricks[i].lives--;
+                    if (bricks[i].lives == 0)
+                    {
+                        bricks[i].active = false;
+                        score++;
+                    }
+                    bola.velocidade.y *= -1;
+
+                    // Change brick color based on remaining lives
+                    if (bricks[i].lives == 2)
+                    {
+                        bricks[i].color = (Color)
+                        {
+                            252, 186, 3, 255
+                        };  // #fcba03
+                    }
+                    else if (bricks[i].lives == 1)
+                    {
+                        bricks[i].color = (Color)
+                        {
+                            252, 244, 3, 255
+                        };  // #fcf403
+                    }
+                }
+            }
+
             // Chama funcao para atualizar posicao da bola dada velocidade atual
             moveBola(&bola);
+
+
+            // Move bricks closer
+            for (int i = 0; i < MAX_BRICKS; i++)
+            {
+                if (bricks[i].active)
+                {
+                    bricks[i].rect.y += 0.1*PASSO_BRICKS;
+
+                    // Check if the brick reaches or goes beyond the ground
+                    if (bricks[i].rect.y + bricks[i].rect.height > BASE_Y)
+                    {
+                        currentScreen = ENDING;
+                    }
+                }
+            }
 
             // Logs
             printf("Velocidade da bola (x,y): (%f, %f)\n Posicao bola = (%f, %f)\n Angulo (%f rad)\n\n", bola.velocidade.x, bola.velocidade.y, bola.posicao.x, bola.posicao.y, anguloDaMira);
@@ -170,10 +312,35 @@ int main(void)
 
             // Desenhar o canhao no centro do chão com redimensionamento e rotação
             DrawTexturePro(texture,
-                           (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},                                               // Source rectangle
-                           (Rectangle){posX_canhao, posY_canhao, texture.width * 0.1f, texture.height * 0.1f}, // Destination rectangle
-                           (Vector2){texture.width * 0.05f, texture.height * 0.05f},
-                           anguloDaMira, WHITE);
+                           (Rectangle)
+            {
+                0.0f, 0.0f, (float)texture.width, (float)texture.height
+            },                                               // Source rectangle
+            (Rectangle)
+            {
+                posX_canhao, posY_canhao, texture.width * 0.1f, texture.height * 0.1f
+            }, // Destination rectangle
+            (Vector2)
+            {
+                texture.width * 0.05f, texture.height * 0.05f
+            },
+            anguloDaMira, WHITE);
+
+
+            // Draw bricks
+            for (int i = 0; i < MAX_BRICKS; i++)
+            {
+                if (bricks[i].active)
+                {
+                    // Draw brick with its remaining lives in the center
+                    DrawRectangleRec(bricks[i].rect, bricks[i].color);
+                    DrawText(TextFormat("%d", bricks[i].lives), bricks[i].rect.x + bricks[i].rect.width / 2 - 10, bricks[i].rect.y + bricks[i].rect.height / 2 - 10, 20, BLACK);
+                }
+            }
+
+            // Draw score
+            DrawText(TextFormat("Score: %d", score), 10, 10, 20, BLACK);
+
             break;
         case ENDING:
 
@@ -221,14 +388,6 @@ float atualizaDirecaoDoCanhaoTeclas(float anguloMira)
     return anguloMira;
 }
 
-/// TODO
-float atualizaDirecaoDoCanhaoMouse(void)
-{
-
-    float anguloRad = -PI + (atan2(GetMouseY() - BASE_Y, GetMouseX() - BASE_X) / PI) * PI;
-    return anguloRad;
-}
-
 void checaDisparoESetaVelocidade(struct Bola *bola, float anguloDaMira)
 {
 
@@ -248,26 +407,18 @@ void moveBola(struct Bola *bola)
     bola->posicao.y = bola->posicao.y + bola->velocidade.y;
 }
 
-int houveColisaoComBordas(struct Bola *bola)
+
+int houveColisaoComChao(struct Bola bola)
 {
 
-    // se bater em uma das laterais
-    if (bola->posicao.x + RAIO_BOLA >= LARGURA_TELA || bola->posicao.x - RAIO_BOLA <= 0)
+    // se bater no fundo
+    if (bola.posicao.y + RAIO_BOLA > ALTURA_TELA)
     {
         return 1;
     }
-    // ou se bater no teto da tela
-    else if (bola->posicao.y - RAIO_BOLA <= 0)
-    {
-        return 1;
-    }
-    // caso contrário (não bateu)
-    else
-    {
-
-        return 0;
-    }
+    else return 0;
 }
+
 
 void resetaBola(struct Bola *bola)
 {
