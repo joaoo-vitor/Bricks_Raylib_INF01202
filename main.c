@@ -13,7 +13,7 @@
 #define PASSO_MIRA 1
 
 #define RAIO_BOLA 6
-#define VEL_BOLA 40
+#define VEL_BOLA 10
 
 #define BRICK_WIDTH 80
 #define BRICK_HEIGHT 30
@@ -213,13 +213,33 @@ int main(void)
             {
                 if (bricks[i].active && CheckCollisionCircleRec(bola.posicao, RAIO_BOLA, bricks[i].rect))
                 {
+
+                    float recCenterX = bricks[i].rect.x + bricks[i].rect.width/2.0f;
+                    float recCenterY = bricks[i].rect.y + bricks[i].rect.height/2.0f;
+                    float dx = fabsf(bola.posicao.x - recCenterX);
+                    float dy = fabsf(bola.posicao.y - recCenterY);
+
+                    printf("Centro da bola:(%f,%f)\nCentro do tijolo:(%f,%f)\nDistancia:[%f, %f]\n\DistanciaX da base do tijolo:%f \n", bola.posicao.x, bola.posicao.y, recCenterX,
+                           recCenterY, dx, dy, dx-(bricks[i].rect.width/2.0f));
+
+
                     bricks[i].lives--;
                     if (bricks[i].lives == 0)
                     {
                         bricks[i].active = false;
                         score++;
                     }
-                    bola.velocidade.y *= -1;
+                    //check if the hit was on the sides
+                    if(dx-bricks[i].rect.width/2.0f <= RAIO_BOLA)
+                    {
+                        bola.velocidade.x*= -1;
+                        printf("BATEU NO LADO DO TIJOLO");
+                    }
+                    else
+                    {
+                        bola.velocidade.y*=-1;
+                        printf("BATEU NA BASE DO TIJOLO");
+                    }
 
                     // Change brick color based on remaining lives
                     if (bricks[i].lives == 2)
@@ -259,7 +279,7 @@ int main(void)
             }
 
             // Logs
-            printf("Velocidade da bola (x,y): (%f, %f)\n Posicao bola = (%f, %f)\n Angulo (%f rad)\n\n", bola.velocidade.x, bola.velocidade.y, bola.posicao.x, bola.posicao.y, anguloDaMira);
+            // printf("Velocidade da bola (x,y): (%f, %f)\n Posicao bola = (%f, %f)\n Angulo (%f rad)\n\n", bola.velocidade.x, bola.velocidade.y, bola.posicao.x, bola.posicao.y, anguloDaMira);
             // Press enter to change to ENDING screen
             if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
             {
@@ -339,7 +359,7 @@ int main(void)
             }
 
             // Draw score
-            DrawText(TextFormat("Score: %d", score), 10, 10, 20, BLACK);
+            //DrawText(TextFormat("Score: %d", score), 10, 10, 20, BLACK);
 
             break;
         case ENDING:
