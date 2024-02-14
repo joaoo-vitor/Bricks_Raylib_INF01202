@@ -136,8 +136,8 @@ int main(void)
     Image gifFim = LoadImageAnim("resources/fundo_fim.gif", &framesGifFim);
     Texture2D texGifFim =  LoadTextureFromImage(gifFim);
 
-    //Carrega blocos a partir do arquivo config.txt
-    leConfig();
+    //Carrega blocos na configuração padrão
+    carregaConfPadrao();
 
     //Reseta o jogo (score, posição e velocidade da bola, bricks...)
     resetaJogo();
@@ -213,6 +213,7 @@ int main(void)
             //        Se sim, chama funcao para resetar posicao e velocidade da bola
             if (houveColisaoComChao(bola))
             {
+                indexBloco=-1;
                 resetaBola(&bola);
             }
 
@@ -238,8 +239,9 @@ int main(void)
             // Checa colisão da bola com bricks
             for (int i = 0; i < MAX_BRICKS; i++)
             {
-                if (bricks[i].active && CheckCollisionCircleRec(bola.posicao, RAIO_BOLA, bricks[i].rect))
+                if (bricks[i].active && CheckCollisionCircleRec(bola.posicao, RAIO_BOLA, bricks[i].rect) && (indexBloco!=i))
                 {
+                    indexBloco=i;
                     if(// O topo da bola bateu no limite inferior do bloco OU a base da bola bateu no limite superior do BLOCO
                         // E (ao mesmo tempo), o centro da bola estava dentro dos limites do comprimennto do bloco
                         // Assim, significa que bateu em uma das bases do bloco
@@ -502,6 +504,7 @@ int main(void)
                 // Checa se o mouse está em cima do botão de MENU
                 else if (CheckCollisionPointRec(GetMousePosition(), botaoTelaInicio))
                 {
+                    carregaConfPadrao();
                     resetaJogo();
                     currentScreen= MENU;
                 }else if (CheckCollisionPointRec(GetMousePosition(), botaoSairFim)){
@@ -737,4 +740,31 @@ void leConfig(){
         printf("|");
     }
     printf("\n");
+}
+
+void carregaConfPadrao(){
+for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            if(i==j) bricksMatrix[i][j]=2;
+            else
+            bricksMatrix[i][j]=3;
+        }
+    }
+
+    printf("\n");
+    //Printa matriz inicial
+    printf("\n\nMatriz de blocos inicial: \n");
+    for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        printf("\n |");
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            printf(" %d ", bricksMatrix[i][j]);
+        }
+        printf("|");
+    }
+    printf("\n");
+
 }
