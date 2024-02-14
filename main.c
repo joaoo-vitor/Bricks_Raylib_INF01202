@@ -28,7 +28,7 @@
 #define BASE_Y ALTURA_TELA - 100
 #define ANGULO_INICIAL -90
 #define VARIACAO_MAXIMA_ANGULO 80
-#define ALCANCE_MIRA 500
+#define ALCANCE_MIRA 1000
 #define PASSO_MIRA 1
 
 #define RAIO_BOLA 6
@@ -39,7 +39,7 @@
 #define MAX_BRICKS 32
 #define MATRIX_ROWS 4
 #define MATRIX_COLS 8
-#define PASSO_BRICKS 1000
+#define PASSO_BRICKS 3
 
 struct Bola
 {
