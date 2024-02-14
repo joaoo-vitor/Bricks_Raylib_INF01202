@@ -1,11 +1,29 @@
+/**********************************************************************************************
+* BRICKS
+* Universidade: UFRGS
+* Cadeira: Algorítimos e Programação (INF01202)
+* Data: Fev/2024
+* Autor: João Vitor de Souza
+*
+*
+* OBS:
+* - A expressão "LARGURA_TELA/700" aparece algumas vezes no código com o objetivo de deixar
+* os elementos de alguma forma "responsivos" ao define LARGURA_TELA, sendo assim proporcionais
+* a largura da tela. Por exemplo, o espaçamento entre os tijolos e o tamanho do fundo. Isso se
+* explica pois o código foi feito com esse define igual a 700 e a altura igual a 500. Portanto
+* ao mudar esse define deve-se mudar proporcionalmente o define ALTURA_TELA para que os elementos
+* continuem aparecendo como devem.
+**********************************************************************************************/
+
+
 #include "raylib.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define LARGURA_TELA 700
-#define ALTURA_TELA 500
+#define LARGURA_TELA 900
+#define ALTURA_TELA 600
 #define BASE_X LARGURA_TELA / 2
 #define BASE_Y ALTURA_TELA - 100
 #define ANGULO_INICIAL -90
@@ -21,7 +39,7 @@
 #define MAX_BRICKS 32
 #define MATRIX_ROWS 4
 #define MATRIX_COLS 8
-#define PASSO_BRICKS 2
+#define PASSO_BRICKS 1000
 
 struct Bola
 {
@@ -45,6 +63,14 @@ typedef struct
     Color color;
 } Brick;
 
+// VARIÁVEIS GLOBAIS
+struct Bola bola;
+int score = 0;
+float anguloDaMira;
+
+Brick bricks[MAX_BRICKS];
+int bricksMatrix[MATRIX_ROWS][MATRIX_COLS];
+
 void desenhaMira(float angulo);
 float atualizaDirecaoDoCanhaoTeclas(float anguloMira);
 float atualizaDirecaoDoCanhaoMouse(void);
@@ -59,15 +85,6 @@ int main(void)
     // Inicializacoes de Jogo
     //--------------------------------------------------------------------------------------
 
-    //Inicialização da bola
-    struct Bola bola;
-    bola.posicao.x = BASE_X;
-    bola.posicao.y = BASE_Y;
-    bola.velocidade.x = 0.0f;
-    bola.velocidade.y = 0.0f;
-    float anguloDaMira = ANGULO_INICIAL;
-    int score = 0;
-
     //Inicialização variáveis para colisão
     int indexBloco=-1; //Conterá o index do bloco com que a bola colidiu
     //Usado para que a bola não colida com um bloco multiplas vezes quando na verdade deveria ser uma
@@ -80,19 +97,27 @@ int main(void)
     Rectangle botaoSair = { LARGURA_TELA/2 - 100, ALTURA_TELA/2 + 90, 200, 40 };
 
     //Botões tela de fim (ficam à direita da tela)
-    Rectangle botaoReset = { LARGURA_TELA/2 - 100 +300, ALTURA_TELA/2 - 50, 200, 40};
-    Rectangle botaoTelaInicio= {LARGURA_TELA/2 -100 +300, ALTURA_TELA/2 + 20, 200, 40};
-    Rectangle botaoSairFim = { LARGURA_TELA/2 - 100 +300, ALTURA_TELA/2 + 90, 200, 40 };
+    Rectangle botaoReset = { LARGURA_TELA/2 - 100 +150*LARGURA_TELA/700, ALTURA_TELA/2 - 50, 200, 40};
+    Rectangle botaoTelaInicio= {LARGURA_TELA/2 -100 +150*LARGURA_TELA/700, ALTURA_TELA/2 + 20, 200, 40};
+    Rectangle botaoSairFim = { LARGURA_TELA/2 - 100 +150*LARGURA_TELA/700, ALTURA_TELA/2 + 90, 200, 40 };
 
-    //Inicialização bricks
-    int bricksMatrix[MATRIX_ROWS][MATRIX_COLS];
-    Brick bricks[MAX_BRICKS];
 
     InitWindow(LARGURA_TELA, ALTURA_TELA, "Bricks"); // Inicializa janela, com certo tamanho e titulo
     SetTargetFPS(60);                                // Ajusta a execucao do jogo para 60 frames por segundo
     GameScreen currentScreen = LOGO;                 // Começa na etapa de logo do jogo
     int framesCounter = 0;                           // Usado para contar o tempo passado (em frames)
 
+     // Carrega ícone da janela
+    Image icon = LoadImage("resources/icone janela.png");
+
+    // Check para ver se carregouj com sucesso a imagem
+    if (icon.data == NULL) {
+        TraceLog(LOG_ERROR, "Erro: Não foi possível ler o ícone da janela.");
+        return -1;
+    }
+
+    // Setta o ícone
+    SetWindowIcon(icon);
 
     // Carregar a textura do canhão do jogo
     Texture2D texture = LoadTexture("resources/canhao.png");
@@ -107,86 +132,15 @@ int main(void)
     Texture2D texGifInicio =  LoadTextureFromImage(gifInicio);
 
     // Carregar a textura do gif de fundo (tela fim)
-        int framesGifFim=0;
+    int framesGifFim=0;
     Image gifFim = LoadImageAnim("resources/fundo_fim.gif", &framesGifFim);
     Texture2D texGifFim =  LoadTextureFromImage(gifFim);
 
+    //Carrega blocos a partir do arquivo config.txt
+    leConfig();
 
-    // Carrega matriz do arquivo de configuração
-    FILE *file = fopen("config.txt", "r");
-    if (!file)
-    {
-        printf("Erro: Não foi possível abrir arquivo de blocos 'config.txt'\n");
-        CloseWindow();
-        return -1;
-    }
-
-    printf("\n\nMatriz de blocos lida: \n");
-    for (int i = 0; i < MATRIX_ROWS; i++)
-    {
-        printf("\n |");
-        for (int j = 0; j < MATRIX_COLS; j++)
-        {
-            if (fscanf(file, "%d", &bricksMatrix[i][j]) != 1)
-            {
-                printf("Erro: Formato do arquivo inválido! \n");
-                fclose(file);
-                CloseWindow();
-                return -1;
-            }
-            printf(" %d ", bricksMatrix[i][j]);
-        }
-        printf("|");
-    }
-    printf("\n");
-
-    // Inicializa bricks
-    int brickIndex = 0;
-    for (int i = 0; i < MATRIX_ROWS; i++)
-    {
-        for (int j = 0; j < MATRIX_COLS; j++)
-        {
-            if (bricksMatrix[i][j] > 0)
-            {
-                bricks[brickIndex].rect = (Rectangle)
-                {
-                    j * (BRICK_WIDTH + 10) + 130, i * (BRICK_HEIGHT + 10) + 50, BRICK_WIDTH, BRICK_HEIGHT
-                };
-                bricks[brickIndex].lives = bricksMatrix[i][j];
-                bricks[brickIndex].active = true;
-
-                // Set color based on lives
-                if (bricks[brickIndex].lives == 3)
-                {
-                    bricks[brickIndex].color = (Color)
-                    {
-                        237, 108, 43, 255
-                    }; // #ed6c2b
-                }
-                else if (bricks[brickIndex].lives == 2)
-                {
-                    bricks[brickIndex].color = (Color)
-                    {
-                        252, 186, 3, 255
-                    };  // #fcba03
-                }
-                else if (bricks[brickIndex].lives == 1)
-                {
-                    bricks[brickIndex].color = (Color)
-                    {
-                        252, 244, 3, 255
-                    };  // #fcf403
-                }
-
-
-            }
-            else
-            {
-                bricks[brickIndex].active=false;
-            }
-            brickIndex++;
-        }
-    }
+    //Reseta o jogo (score, posição e velocidade da bola, bricks...)
+    resetaJogo();
 
     //--------------------------------------------------------------------------------------
     // Laco principal do jogo
@@ -271,9 +225,7 @@ int main(void)
                 if (bricks[i].active)
                 {
                     bricks[i].rect.y += 0.1*PASSO_BRICKS;
-                    //printf("Bloco %d (%d): (x,y) = (%f, %f). Width: %f, Height: %f\n", i, bricks[i].lives, bricks[i].rect.x,
-                    //    bricks[i].rect.y, bricks[i].rect.width, bricks[i].rect.height);
-                    // Check if the brick reaches or goes beyond the ground
+
                     if ((bricks[i].rect.y + bricks[i].rect.height) > BASE_Y)
                     {
 
@@ -296,17 +248,15 @@ int main(void)
                     )
                     {
                         bola.velocidade.y*= -1;
-                        printf("Bateu as BASES do bricks\n");
                     }
                     else
                     {
                         //CASO CONTRÁRIO, significa que bateu em um dos lados do bloco
                         bola.velocidade.x*=-1;
-                        printf("Bateu nos LADOS do brick\n");
                     }
 
 
-                    // Atualiza vida do brick
+                    // Atualiza vida do tijolo
                     bricks[i].lives--;
                     if (bricks[i].lives == 0)
                     {
@@ -314,7 +264,7 @@ int main(void)
                         score++;
                     }
 
-                    // Change brick color based on remaining lives
+                    // Muda a cor do tijolo a partir das vidas remanescentes
                     if (bricks[i].lives == 2)
                     {
                         bricks[i].color = (Color)
@@ -333,9 +283,9 @@ int main(void)
             }
 
             // Press enter to change to ENDING screen
-            if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
+            if (IsKeyPressed(KEY_ENTER))
             {
-                printf("Fim de jogo, motivo: Enter/Click pressionado.");
+                printf("Fim de jogo, motivo: Enter pressionado.\n");
                 currentScreen = ENDING;
             }
 
@@ -348,20 +298,13 @@ int main(void)
             {
                 currentAnimFrame++;
                 if (currentAnimFrame >= framesGifFim) currentAnimFrame = 0;
-                nextFrameDataOffset = texGifInicio.width*texGifInicio.height*4*currentAnimFrame;
+                nextFrameDataOffset = texGifFim.width*texGifFim.height*4*currentAnimFrame;
 
-                UpdateTexture(texGifInicio, ((unsigned char *)gifInicio.data) + nextFrameDataOffset);
+                UpdateTexture(texGifFim, ((unsigned char *)gifFim.data) + nextFrameDataOffset);
                 framesCounter=0;
 
             }
 
-            if (IsKeyPressed(KEY_ENTER) || IsGestureDetected(GESTURE_TAP))
-            {
-                score=0;
-                //reset blocks
-                resetaBola(&bola);
-                currentScreen = MENU;
-            }
             break;
         }
 
@@ -378,23 +321,30 @@ int main(void)
             //Desenha fundo
             DrawTextureEx(texGifInicio, (Vector2)
             {
-                -100,-100
-                }, 0, 1.9, WHITE);
+                0,-0
+                }, 0, 1.5*LARGURA_TELA/700, WHITE);
 
             // Desenha título centralizado
-            desenhaTextoCentr("BRICKS", 100, (Vector2)
+            desenhaTextoCentr("BRICKS", (Vector2)
             {
                 LARGURA_TELA/2, ALTURA_TELA/2
-            });
+            }, 100, LIGHTGRAY);
             break;
         case MENU:
-            //Desenha fundo
+
+            //Desenha fundo (inicio)
             DrawTextureEx(texGifInicio, (Vector2)
             {
-                -100,-100
-                }, 0, 1.9, WHITE);
+                0,0
+                }, 0, 1.5*LARGURA_TELA/700, WHITE);
 
-            // Check for mouse input
+            // Desenha título centralizado (em cima)
+            desenhaTextoCentr("BRICKS", (Vector2)
+            {
+                LARGURA_TELA/2, ALTURA_TELA/10
+            }, 50, LIGHTGRAY);
+
+            // INTERAÇÕES COM BOTÕES
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 // Checa se o mouse está em cima do botão de JOGAR
@@ -402,6 +352,12 @@ int main(void)
                 {
                     currentScreen++;
                     break;
+                }
+                // Checa se o mouse está em cima do botão de CARREGAR JOGO
+                else if (CheckCollisionPointRec(GetMousePosition(), botaoCarregar))
+                {
+                    leConfig();
+                    resetaJogo();
                 }
                 // Checa se o mouse está em cima do botão de SAIR
                 else if (CheckCollisionPointRec(GetMousePosition(), botaoSair))
@@ -412,48 +368,48 @@ int main(void)
                 }
             }
 
-            // Highlight buttons when mouse hovers over them
+            // Highlight dos botões para hover
             if (CheckCollisionPointRec(GetMousePosition(), botaoJogar))
             {
-                DrawRectangleRec(botaoJogar, BLUE);
+                DrawRectangleRec(botaoJogar, LIGHTGRAY);
             }
             else
             {
-                DrawRectangleLinesEx(botaoJogar, 2, BLUE);
+                DrawRectangleLinesEx(botaoJogar, 2, LIGHTGRAY);
             }
 
             if (CheckCollisionPointRec(GetMousePosition(), botaoCarregar))
             {
-                DrawRectangleRec(botaoCarregar, MAGENTA);
+                DrawRectangleRec(botaoCarregar, LIGHTGRAY);
             }
             else
             {
-                DrawRectangleLinesEx(botaoCarregar, 2, MAGENTA);
+                DrawRectangleLinesEx(botaoCarregar, 2, LIGHTGRAY);
             }
 
             if (CheckCollisionPointRec(GetMousePosition(), botaoSair))
             {
-                DrawRectangleRec(botaoSair, RED);
+                DrawRectangleRec(botaoSair, LIGHTGRAY);
             }
             else
             {
-                DrawRectangleLinesEx(botaoSair, 2, RED);
+                DrawRectangleLinesEx(botaoSair, 2, LIGHTGRAY);
             }
 
 
-            // Draw button texts
-            desenhaTextoCentr("JOGAR", 20, (Vector2)
+            //Desenha textos dos botões
+            desenhaTextoCentr("JOGAR", (Vector2)
             {
                 botaoJogar.x+botaoJogar.width/2,botaoJogar.y+botaoJogar.height/2
-            });
-            desenhaTextoCentr("CARREGAR JOGO", 20, (Vector2)
+            }, 20, RAYWHITE);
+            desenhaTextoCentr("CARREGAR JOGO", (Vector2)
             {
                 botaoCarregar.x+botaoCarregar.width/2,botaoCarregar.y+botaoCarregar.height/2
-            });
-            desenhaTextoCentr("SAIR", 20, (Vector2)
+            }, 20, RAYWHITE);
+            desenhaTextoCentr("SAIR", (Vector2)
             {
                 botaoSair.x+botaoSair.width/2,botaoSair.y+botaoSair.height/2
-            });
+            }, 20, RAYWHITE);
 
 
 
@@ -471,34 +427,37 @@ int main(void)
 
             // Desenhar o canhao no centro do chão com redimensionamento e rotação
             DrawTexturePro(texture,
+                           //  Retângulo de origem
                            (Rectangle)
             {
                 0.0f, 0.0f, (float)texture.width, (float)texture.height
-            },                                               // Source rectangle
+            },
+            // Retângulo de destino
             (Rectangle)
             {
                 posX_canhao, posY_canhao, texture.width * 0.1f, texture.height * 0.1f
-            }, // Destination rectangle
+            },
             (Vector2)
             {
                 texture.width * 0.05f, texture.height * 0.05f
             },
             anguloDaMira, WHITE);
 
-            // Desenha bricks
+            // Desenha tijolos
             for (int i = 0; i < MAX_BRICKS; i++)
             {
                 if (bricks[i].active)
                 {
-                    // Draw brick with its remaining lives in the center
-
-                    // Desenha texto centralizado
+                    // Desenha tijolo com cor específica
                     DrawRectangleRec(bricks[i].rect, bricks[i].color);
-                    desenhaTextoCentr(TextFormat("%d", bricks[i].lives), 18,
-                                      (Vector2){
-                                      bricks[i].rect.x+bricks[i].rect.width,
-                                      bricks[i].rect.y+bricks[i].rect.height
-                                      });
+
+                    // Desenha texto centralizado do tijolo
+                    desenhaTextoCentr(TextFormat("%d", bricks[i].lives),
+                                      (Vector2)
+                    {
+                        bricks[i].rect.x+bricks[i].rect.width/2,
+                               bricks[i].rect.y+bricks[i].rect.height/2
+                    }, 18, BLACK);
                 }
             }
 
@@ -511,10 +470,90 @@ int main(void)
             //Desenha fundo
             DrawTextureEx(texGifFim, (Vector2)
             {
-                -100,-100
-                }, 0, 1.9, WHITE);
-            DrawRectangle(0, 0, LARGURA_TELA, ALTURA_TELA, BLUE);
-            DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 120, 220, 20, DARKBLUE);
+                0,0
+                }, 0, 1.2*LARGURA_TELA/700, WHITE);
+
+            // Desenha textos fixos
+            desenhaTextoCentr("BRICKS", (Vector2)
+            {
+                LARGURA_TELA/2, ALTURA_TELA/10
+            }, 50, LIGHTGRAY);
+
+            desenhaTextoCentr("FIM DE JOGO!", (Vector2)
+            {
+                LARGURA_TELA/2 -150*LARGURA_TELA/700, ALTURA_TELA/2-40}, 30, RED
+            );
+
+            desenhaTextoCentr(TextFormat("SCORE: %d", score), (Vector2)
+            {
+                LARGURA_TELA/2 -150*LARGURA_TELA/700, ALTURA_TELA/2-10}, 30, LIGHTGRAY
+            );
+
+            //INTERAÇÕES COM BOTÕES
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                // Checa se o mouse está em cima do botão de RESET
+                if (CheckCollisionPointRec(GetMousePosition(), botaoReset))
+                {
+                    resetaJogo();
+                    currentScreen= GAMEPLAY;
+                    break;
+                }
+                // Checa se o mouse está em cima do botão de MENU
+                else if (CheckCollisionPointRec(GetMousePosition(), botaoTelaInicio))
+                {
+                    resetaJogo();
+                    currentScreen= MENU;
+                }else if (CheckCollisionPointRec(GetMousePosition(), botaoSairFim)){
+                // Close the game
+                    CloseWindow();
+                    return 0;
+            }
+            }
+
+            // Highlight dos botões com hover
+            if (CheckCollisionPointRec(GetMousePosition(), botaoReset))
+            {
+                DrawRectangleRec(botaoReset, LIGHTGRAY);
+            }
+            else
+            {
+                DrawRectangleLinesEx(botaoReset, 2, LIGHTGRAY);
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), botaoTelaInicio))
+            {
+                DrawRectangleRec(botaoTelaInicio, LIGHTGRAY);
+            }
+            else
+            {
+                DrawRectangleLinesEx(botaoTelaInicio, 2, LIGHTGRAY);
+            }
+
+            if (CheckCollisionPointRec(GetMousePosition(), botaoSairFim))
+            {
+                DrawRectangleRec(botaoSairFim, LIGHTGRAY);
+            }
+            else
+            {
+                DrawRectangleLinesEx(botaoSairFim, 2, LIGHTGRAY);
+            }
+
+
+            //Desenha textos dos botões
+            desenhaTextoCentr("RESETAR JOGO", (Vector2)
+            {
+                botaoReset.x+botaoReset.width/2,botaoReset.y+botaoReset.height/2
+            }, 20, RAYWHITE);
+            desenhaTextoCentr("VOLTAR AO MENU", (Vector2)
+            {
+                botaoTelaInicio.x+botaoTelaInicio.width/2,botaoTelaInicio.y+botaoTelaInicio.height/2
+            },20, RAYWHITE);
+            desenhaTextoCentr("SAIR", (Vector2)
+            {
+                botaoSairFim.x+botaoSairFim.width/2,botaoSairFim.y+botaoSairFim.height/2
+            }, 20, RAYWHITE);
+
 
             break;
         }
@@ -601,14 +640,101 @@ void resetaBola(struct Bola *bola)
     bola->velocidade.y = 0.0;
 }
 
-void desenhaTextoCentr(char *str, int size, Vector2 pos)
+void desenhaTextoCentr(char *str, Vector2 pos, int size, Color cor)
 {
     Font font = GetFontDefault();
     font.baseSize = size;
     float textWidth = MeasureText(str, font.baseSize);
     float textHeight = font.baseSize;
-    DrawText(str, pos.x - textWidth / 2, pos.y - textHeight / 2, font.baseSize, LIGHTGRAY);
+    DrawText(str, pos.x - textWidth / 2, pos.y - textHeight / 2, font.baseSize, cor);
+}
 
+void resetaJogo(){
+
+//Inicialização da bola
+    bola.posicao.x = BASE_X;
+    bola.posicao.y = BASE_Y;
+    bola.velocidade.x = 0.0f;
+    bola.velocidade.y = 0.0f;
+    anguloDaMira = ANGULO_INICIAL;
+score=0;
+
+// Inicializa bricks
+    int brickIndex = 0;
+    for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            if (bricksMatrix[i][j] > 0)
+            {
+                bricks[brickIndex].rect = (Rectangle)
+                {
+                    j * (BRICK_WIDTH + 10*LARGURA_TELA/700) + 130*LARGURA_TELA/700, i * (BRICK_HEIGHT + 10*LARGURA_TELA/700) + 50, BRICK_WIDTH, BRICK_HEIGHT
+                };
+                bricks[brickIndex].lives = bricksMatrix[i][j];
+                bricks[brickIndex].active = true;
+
+                // Set color based on lives
+                if (bricks[brickIndex].lives == 3)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        237, 108, 43, 255
+                    }; // #ed6c2b
+                }
+                else if (bricks[brickIndex].lives == 2)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        252, 186, 3, 255
+                    };  // #fcba03
+                }
+                else if (bricks[brickIndex].lives == 1)
+                {
+                    bricks[brickIndex].color = (Color)
+                    {
+                        252, 244, 3, 255
+                    };  // #fcf403
+                }
+
+
+            }
+            else
+            {
+                bricks[brickIndex].active=false;
+            }
+            brickIndex++;
+        }
+    }
 }
 
 
+void leConfig(){
+// Carrega matriz do arquivo de configuração
+    FILE *file = fopen("config.txt", "r");
+    if (!file)
+    {
+        printf("Erro: Não foi possível abrir arquivo de blocos 'config.txt'\n");
+        CloseWindow();
+        return -1;
+    }
+
+    printf("\n\nMatriz de blocos lida: \n");
+    for (int i = 0; i < MATRIX_ROWS; i++)
+    {
+        printf("\n |");
+        for (int j = 0; j < MATRIX_COLS; j++)
+        {
+            if (fscanf(file, "%d", &bricksMatrix[i][j]) != 1)
+            {
+                printf("Erro: Formato do arquivo inválido! \n");
+                fclose(file);
+                CloseWindow();
+                return -1;
+            }
+            printf(" %d ", bricksMatrix[i][j]);
+        }
+        printf("|");
+    }
+    printf("\n");
+}
