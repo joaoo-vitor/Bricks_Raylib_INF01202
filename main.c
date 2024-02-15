@@ -32,14 +32,14 @@
 #define PASSO_MIRA 1
 
 #define RAIO_BOLA 6
-#define VEL_BOLA RAIO_BOLA
+#define VEL_BOLA RAIO_BOLA*2
 
 #define BRICK_WIDTH 50
 #define BRICK_HEIGHT 25
 #define MAX_BRICKS 32
 #define MATRIX_ROWS 4
 #define MATRIX_COLS 8
-#define PASSO_BRICKS 3
+#define PASSO_BRICKS 130
 
 struct Bola
 {
@@ -67,6 +67,7 @@ typedef struct
 struct Bola bola;
 int score = 0;
 float anguloDaMira;
+
 
 Brick bricks[MAX_BRICKS];
 int bricksMatrix[MATRIX_ROWS][MATRIX_COLS];
@@ -218,13 +219,7 @@ int main(void)
             if (houveColisaoComChao(bola))
             {
                 indexBloco=-1;
-                resetaBola(&bola);
-            }
-
-            // Chama funcao para atualizar posicao da bola dada velocidade atual
-            moveBola(&bola);
-
-            // Move bricks closer
+                // Move os bricks para mais perto
             for (int i = 0; i < MAX_BRICKS; i++)
             {
                 if (bricks[i].active)
@@ -239,6 +234,11 @@ int main(void)
                     }
                 }
             }
+                resetaBola(&bola);
+            }
+
+            // Chama funcao para atualizar posicao da bola dada velocidade atual
+            moveBola(&bola);
 
             // Checa colisão da bola com bricks
             for (int i = 0; i < MAX_BRICKS; i++)
@@ -264,10 +264,10 @@ int main(void)
 
                     // Atualiza vida do tijolo
                     bricks[i].lives--;
+                    score++;
                     if (bricks[i].lives == 0)
                     {
                         bricks[i].active = false;
-                        score++;
                     }
 
                     // Muda a cor do tijolo a partir das vidas remanescentes
@@ -607,6 +607,7 @@ float atualizaDirecaoDoCanhaoTeclas(float anguloMira)
 
 void checaDisparoESetaVelocidade(struct Bola *bola, float anguloDaMira)
 {
+
 
     // Se for pressionado o espaço e a bolinha estiver na base
     if (IsKeyPressed(KEY_SPACE) && (bola->posicao.x == BASE_X && bola->posicao.y == BASE_Y))
