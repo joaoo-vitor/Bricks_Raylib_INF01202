@@ -78,6 +78,10 @@ void checaDisparoESetaVelocidade(struct Bola *bola, float anguloDaMira);
 void moveBola(struct Bola *bola);
 int houveColisaoComChao(struct Bola bola);
 void resetaBola(struct Bola *bola);
+void desenhaTextoCentr(char *str, Vector2 pos, int size, Color cor);
+void resetaJogo();
+void leConfig();
+void carregaConfPadrao();
 
 int main(void)
 {
@@ -112,7 +116,7 @@ int main(void)
 
     // Check para ver se carregouj com sucesso a imagem
     if (icon.data == NULL) {
-        TraceLog(LOG_ERROR, "Erro: Não foi possível ler o ícone da janela.");
+        printf("Erro: Não foi possível ler o ícone da janela.");
         return -1;
     }
 
